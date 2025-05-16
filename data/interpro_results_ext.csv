@@ -1,4 +1,4 @@
-accession,fragments
+accession,length,source_database,fragments
 A0A003,340,unreviewed,"[{""start"": 15, ""end"": 249}]"
 A0A009GZV8,323,unreviewed,"[{""start"": 3, ""end"": 208}]"
 A0A009H3J1,335,unreviewed,"[{""start"": 2, ""end"": 260}]"
