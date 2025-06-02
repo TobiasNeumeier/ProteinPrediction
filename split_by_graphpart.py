@@ -7,7 +7,7 @@ from Bio import SeqIO
 def parse_fasta(fasta_path):
     records = list(SeqIO.parse(fasta_path, "fasta"))
     return pd.DataFrame({
-        "AC": [rec.id for rec in records],
+        "AC": [rec.id.split('|')[0] for rec in records],
         "sequence": [str(rec.seq) for rec in records]
     })
 
