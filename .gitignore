@@ -1,2 +1,6 @@
 .idea/
 .ipynb_checkpoints/
+.vscode/
+__pycache__/
+data/processed/
+data/raw/
