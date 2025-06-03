@@ -5,11 +5,27 @@ from sklearn.model_selection import train_test_split
 from Bio import SeqIO
 import subprocess
 
+import re
+
 def parse_fasta(fasta_path):
     records = list(SeqIO.parse(fasta_path, "fasta"))
+
+    def extract_start_stop(label):
+        # label is like 'PF10417.14-154-176'
+        match = re.search(r'-(\d+)-(\d+)$', label)
+        if match:
+            return int(match.group(1)), int(match.group(2))
+        return None, None
+
+    labels = [rec.id.split('|')[1].replace("label=", "", 1) for rec in records]
+    starts, stops = zip(*(extract_start_stop(label) for label in labels))
+
     return pd.DataFrame({
         "AC": [rec.id.split('|')[0] for rec in records],
-        "label": [rec.id.split('|')[1].replace("label=", "", 1) for rec in records],
+        "label": labels,
+        "start": starts,
+        "end": stops,
+        "length": [len(rec.seq) for rec in records],
         "header": [rec.id for rec in records],
         "sequence": [str(rec.seq) for rec in records]
     })
@@ -86,12 +102,11 @@ def main(fasta_path, out_dir, train_size, val_size, test_size, mmseqs_threshold)
     (out_dir / "temp.fasta").unlink(missing_ok=True)
 
     # Print achieved ratios
-    n_total = len(fasta_df)
     n_train = len(filtered_train_df)
     n_val = len(val_df)
     n_test = len(test_df)
+    n_total = n_train + n_val + n_test
     print(f"Final split sizes: train={n_train} ({n_train/n_total:.2%}), val={n_val} ({n_val/n_total:.2%}), test={n_test} ({n_test/n_total:.2%})")
-    #Final split sizes: train=1809 (12.51%), val=2892 (20.00%), test=1446 (10.00%)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Split FASTA with MMseqs2 deduplication between train and temp (val+test).E.g.: python split_by_mmseqs2.py \
