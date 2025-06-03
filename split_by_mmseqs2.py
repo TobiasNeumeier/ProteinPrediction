@@ -22,6 +22,10 @@ def write_fasta(df, path):
 def main(fasta_path, out_dir, train_size, val_size, test_size, mmseqs_threshold):
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    fasta_path_base = Path(fasta_path).name
+    out_dir = Path(out_dir + fasta_path_base.replace('.fasta', ''))
+    out_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Output directory: {out_dir}")
 
     fasta_df = parse_fasta(fasta_path)
 
@@ -84,7 +88,7 @@ def main(fasta_path, out_dir, train_size, val_size, test_size, mmseqs_threshold)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Split FASTA with MMseqs2 deduplication between train and temp (val+test).E.g.: python split_by_mmseqs2.py \
   --fasta data/fasta/pfam_subset_graphpart_400x40.fasta \
-  --out_dir ./split_mmseqs2 \
+  --out_dir data/split/mmseqs2 \
   --train_size 0.7 \
   --val_size 0.2 \
   --test_size 0.1 \
