@@ -22,8 +22,9 @@ def write_fasta(df, path):
 def main(fasta_path, out_dir, train_size, val_size, test_size, mmseqs_threshold):
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    
     fasta_path_base = Path(fasta_path).name
-    out_dir = Path(out_dir + fasta_path_base.replace('.fasta', ''))
+    out_dir = out_dir / fasta_path_base.replace('.fasta', '')
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output directory: {out_dir}")
 
