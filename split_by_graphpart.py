@@ -8,6 +8,8 @@ def parse_fasta(fasta_path):
     records = list(SeqIO.parse(fasta_path, "fasta"))
     return pd.DataFrame({
         "AC": [rec.id.split('|')[0] for rec in records],
+        "label": [rec.id.split('|')[1].replace("label=", "", 1) for rec in records],  # TODO check for correctness
+        "header": [rec.id for rec in records],
         "sequence": [str(rec.seq) for rec in records]
     })
 
@@ -53,3 +55,7 @@ if __name__ == "__main__":
     parser.add_argument("--out_dir", required=True, help="Output directory for split CSVs")
     args = parser.parse_args()
     main(args.fasta, args.graphpart_csv, args.out_dir)
+
+
+# python split_by_graphpart.py --fasta data/fasta/pfam_subset_graphpart_400x40.fasta --graphpart_csv data/clustered/graphpart_assignments_partitions_3_th5.csv --out_dir ~/split/pfam_subset_graphpart_4_partitions_3_th_5
+# graphpart mmseqs2 --fasta-file data/fasta/pfam_subset_graphpart_400x40.fasta --threshold 0.3 --out-file data/clustered/graphpart_assignments_400x40_partitions_3_th3.csv --labels-name label --partitions 3

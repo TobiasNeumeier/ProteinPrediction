@@ -1,5 +1,6 @@
 #!/bin/bash
 # filepath: protein-prediction/install_tools.sh
+# chmod +x install_tools.sh
 
 set -e
 
