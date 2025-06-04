@@ -7,8 +7,8 @@ import ast
 class ProteinResidueDataset(Dataset):
     def __init__(self, csv_path, label_to_index=None):
         self.df = pd.read_csv(csv_path)
-        self.df['fragments'] = self.df['fragments'].apply(ast.literal_eval)
-        self.df['family'] = 'PF01370'
+        #self.df['fragments'] = self.df['fragments'].apply(ast.literal_eval)
+        self.df['family'] = self.df['label'].apply(lambda x: x.split('-')[0])
         
         # Create label -> index mapping if not given
         if label_to_index is None:
@@ -26,10 +26,9 @@ class ProteinResidueDataset(Dataset):
         
         # Per-residue labels: 1 for family domain, 0 for background
         label_mask = torch.zeros(length, dtype=torch.long)
-        for fragment in row['fragments']:
-            start = fragment['start']
-            end = fragment['end']
-            label_mask[start:end + 1] = 1
+        start = row['start']
+        end = row['end']
+        label_mask[start:end + 1] = 1
         
         # Later on, we will save the embeddings (and one-hot encodings) and load them instead
         return {
