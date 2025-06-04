@@ -32,7 +32,7 @@ class ProteinResidueDataset(Dataset):
         
         # Later on, we will save the embeddings (and one-hot encodings) and load them instead
         return {
-            'accession': row['accession'],
+            'accession': row['AC'],
             'label': self.label_to_index[row['family']],
             'residue_labels': label_mask,
             'length': length
