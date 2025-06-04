@@ -1,15 +1,15 @@
 {
   "n_total": 14457,
-  "n_dedup": 5048,
+  "n_dedup": 4103,
   "n_clusters": 14457,
-  "percent_lost": 65.08265891955455,
-  "train_size": 3533,
-  "val_size": 1010,
-  "test_size": 505,
-  "train_ratio": 0.6998811410459588,
-  "val_ratio": 0.20007923930269414,
-  "test_ratio": 0.10003961965134707,
+  "percent_lost": 71.61928477554126,
+  "train_size": 2872,
+  "val_size": 820,
+  "test_size": 411,
+  "train_ratio": 0.6999756275895687,
+  "val_ratio": 0.19985376553741166,
+  "test_ratio": 0.10017060687301974,
   "mmseqs_min_seq_id": 0.3,
   "mmseqs_cov": 0.8,
-  "mmseqs_cov_mode": 0
+  "mmseqs_cov_mode": 1
 }
