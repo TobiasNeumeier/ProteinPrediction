@@ -48,12 +48,10 @@ def main(fasta_path, out_dir, train_size, val_size, test_size, mmseqs_threshold,
 
     # 1. MMseqs2 easy-cluster for deduplication
     mmseqs_dir = out_dir 
-    input_fasta = mmseqs_dir / "input.fasta"
-    write_fasta(fasta_df, input_fasta)
 
     # Run easy-cluster
     subprocess.run([
-        "mmseqs", "easy-cluster", str(input_fasta), str(mmseqs_dir /  "output" ), str(mmseqs_dir /  "tmp" ),
+        "mmseqs", "easy-cluster", str(fasta_path), str(mmseqs_dir /  "output" ), str(mmseqs_dir /  "tmp" ),
         "--min-seq-id", str(mmseqs_threshold),
         "-c", str(cov),
         "--cov-mode", str(cov_mode)
