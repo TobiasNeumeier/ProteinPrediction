@@ -53,7 +53,7 @@ def main(fasta_path, out_dir, train_size, val_size, test_size, mmseqs_threshold,
 
     # Run easy-cluster
     subprocess.run([
-        "mmseqs", "easy-cluster", str(input_fasta), "output" , "tmp",
+        "mmseqs", "easy-cluster", str(input_fasta), str(mmseqs_dir /  "output" ), str(mmseqs_dir /  "tmp" ),
         "--min-seq-id", str(mmseqs_threshold),
         "-c", str(cov),
         "--cov-mode", str(cov_mode)
