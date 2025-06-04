@@ -47,15 +47,14 @@ def main(fasta_path, out_dir, train_size, val_size, test_size, mmseqs_threshold,
     n_total = len(fasta_df)
 
     # 1. MMseqs2 easy-cluster for deduplication
-    mmseqs_dir = out_dir / "mmseqs_tmp"
-    mmseqs_dir.mkdir(exist_ok=True)
+    mmseqs_dir = out_dir / "clustered_results"
+    mmseqs_dir.mkdir(parents=True, exist_ok=True)
     input_fasta = mmseqs_dir / "input.fasta"
     write_fasta(fasta_df, input_fasta)
-    #dedup_fasta = mmseqs_dir / "dedup.fasta"
 
     # Run easy-cluster
     subprocess.run([
-        "mmseqs", "easy-cluster", str(input_fasta), str(mmseqs_dir), str(mmseqs_dir),
+        "mmseqs", "easy-cluster", str(input_fasta), str(mmseqs_dir) , str(out_dir / "tmp"),
         "--min-seq-id", str(mmseqs_threshold),
         "-c", str(cov),
         "--cov-mode", str(cov_mode)
@@ -119,6 +118,6 @@ if __name__ == "__main__":
     parser.add_argument("--test_size", type=float, default=0.1, help="Proportion for test set (default: 0.1)")
     parser.add_argument("--mmseqs_threshold", type=float, default=0.3, help="MMseqs2 min-seq-id threshold (default: 0.3)")
     parser.add_argument("--cov", type=float, default=0.8, help="MMseqs2 coverage threshold (default: 0.8)")
-    parser.add_argument("--cov_mode", type=int, default=2, help="MMseqs2 coverage mode (default: 2)")
+    parser.add_argument("--cov_mode", type=int, default=0, help="MMseqs2 coverage mode (default: 0)")
     args = parser.parse_args()
     main(args.fasta, args.out_dir, args.train_size, args.val_size, args.test_size, args.mmseqs_threshold, args.cov, args.cov_mode)
