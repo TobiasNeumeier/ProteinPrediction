@@ -47,28 +47,27 @@ def main(fasta_path, out_dir, train_size, val_size, test_size, mmseqs_threshold,
     n_total = len(fasta_df)
 
     # 1. MMseqs2 easy-cluster for deduplication
-    mmseqs_dir = out_dir / "clustered_results"
-    mmseqs_dir.mkdir(parents=True, exist_ok=True)
+    mmseqs_dir = out_dir 
     input_fasta = mmseqs_dir / "input.fasta"
     write_fasta(fasta_df, input_fasta)
 
     # Run easy-cluster
     subprocess.run([
-        "mmseqs", "easy-cluster", str(input_fasta), str(mmseqs_dir) , str(out_dir / "tmp"),
+        "mmseqs", "easy-cluster", str(input_fasta), "output" , "tmp",
         "--min-seq-id", str(mmseqs_threshold),
         "-c", str(cov),
         "--cov-mode", str(cov_mode)
     ], check=True)
 
     # The deduplicated fasta is at mmseqs_dir/rep_seq.fasta
-    rep_fasta = mmseqs_dir / "rep_seq.fasta"
+    rep_fasta = mmseqs_dir / "output_rep_seq.fasta"
     dedup_df = parse_fasta(rep_fasta)
     dedup_df.to_csv(out_dir / "dedup_sequences.csv", index=False)
     n_dedup = len(dedup_df)
     print(f"Deduplicated: {n_dedup} sequences remain ({n_dedup/n_total:.2%} of original, {100 - (n_dedup/n_total)*100:.2f}% lost)")
 
     # Count clusters (number of lines in cluster.tsv)
-    cluster_file = mmseqs_dir / "cluster.tsv"
+    cluster_file = mmseqs_dir / "output_cluster.tsv"
     with open(cluster_file) as f:
         n_clusters = sum(1 for _ in f)
     print(f"Number of clusters: {n_clusters}")
