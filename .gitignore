@@ -3,4 +3,4 @@
 .vscode/
 __pycache__/
 data/processed/*
-data/processed
+data/split/mmseqs2/*/mmseqs_tmp/*

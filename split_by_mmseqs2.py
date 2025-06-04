@@ -45,68 +45,50 @@ def main(fasta_path, out_dir, train_size, val_size, test_size, mmseqs_threshold)
     print(f"Output directory: {out_dir}")
 
     fasta_df = parse_fasta(fasta_path)
+    n_total = len(fasta_df)
 
-    # Normalize ratios
+    # 1. MMseqs2 clustering for deduplication
+    mmseqs_dir = out_dir / "mmseqs_tmp"
+    mmseqs_dir.mkdir(exist_ok=True)
+    input_fasta = mmseqs_dir / "input.fasta"
+    write_fasta(fasta_df, input_fasta)
+    db = mmseqs_dir / "db"
+    cluster = mmseqs_dir / "cluster"
+    rep = mmseqs_dir / "rep"
+    dedup_fasta = mmseqs_dir / "dedup.fasta"
+
+    subprocess.run(["mmseqs", "createdb", str(input_fasta), str(db)], check=True)
+    subprocess.run([
+        "mmseqs", "cluster", str(db), str(cluster), str(mmseqs_dir), "--min-seq-id", str(mmseqs_threshold)
+    ], check=True)
+    subprocess.run([
+        "mmseqs", "createseqfiledb", str(db), str(cluster), str(rep)
+    ], check=True)
+    subprocess.run([
+        "mmseqs", "result2flat", str(db), str(db), str(rep), str(dedup_fasta)
+    ], check=True)
+
+    # Parse deduplicated fasta
+    dedup_df = parse_fasta(dedup_fasta)
+    n_dedup = len(dedup_df)
+    print(f"Deduplicated: {n_dedup} sequences remain ({n_dedup/n_total:.2%} of original, {100 - (n_dedup/n_total)*100:.2f}% lost)")
+
+    # 2. Split into train/val/test
     total = train_size + val_size + test_size
     train_ratio = train_size / total
     val_ratio = val_size / total
     test_ratio = test_size / total
 
-    # First split: train vs. temp (val+test)
-    train_df, temp_df = train_test_split(fasta_df, test_size=(1-train_ratio), random_state=42)
-
-    # Write train and temp to FASTA for MMseqs2
-    write_fasta(train_df, out_dir / "train_raw.fasta")
-    write_fasta(temp_df, out_dir / "temp.fasta")
-
-    # MMseqs2: use a dedicated subfolder for all intermediate files
-    mmseqs_dir = out_dir / "mmseqs_work"
-    mmseqs_dir.mkdir(exist_ok=True)
-    db_train = mmseqs_dir / "train_db"
-    db_temp = mmseqs_dir / "temp_db"
-    aln_dir = mmseqs_dir / "tmp"
-    aln_dir.mkdir(exist_ok=True)
-    result_file = mmseqs_dir / "train_vs_temp.m8"
-
-    subprocess.run(["mmseqs", "createdb", str(out_dir / "train_raw.fasta"), str(db_train)], check=True)
-    subprocess.run(["mmseqs", "createdb", str(out_dir / "temp.fasta"), str(db_temp)], check=True)
-    subprocess.run([
-        "mmseqs", "search", str(db_train), str(db_temp), str(mmseqs_dir / "result"), str(aln_dir),
-        "--min-seq-id", str(mmseqs_threshold)
-    ], check=True)
-    subprocess.run([
-        "mmseqs", "convertalis", str(db_train), str(db_temp), str(mmseqs_dir / "result"), str(result_file),
-        "--format-output", "query,target,pident"
-    ], check=True)
-
-    # Remove from train any sequence that matches temp above threshold
-    similar_train_ACs = set()
-    with open(result_file) as f:
-        for line in f:
-            query, target, pident = line.strip().split('\t')
-            if float(pident) >= mmseqs_threshold * 100:
-                similar_train_ACs.add(query.split('|')[0])
-    filtered_train_df = train_df[~train_df['AC'].isin(similar_train_ACs)]
-
-    # Now split temp into val and test
+    train_df, temp_df = train_test_split(dedup_df, test_size=(1-train_ratio), random_state=42)
     val_relative = val_ratio / (val_ratio + test_ratio)
     val_df, test_df = train_test_split(temp_df, test_size=(1-val_relative), random_state=42)
 
-    # Save to CSV (only these are in the main output folder)
-    filtered_train_df.to_csv(out_dir / "train.csv", index=False)
+    # Save to CSV
+    train_df.to_csv(out_dir / "train.csv", index=False)
     val_df.to_csv(out_dir / "val.csv", index=False)
     test_df.to_csv(out_dir / "test.csv", index=False)
 
-    # Optionally, remove intermediate FASTA files
-    (out_dir / "train_raw.fasta").unlink(missing_ok=True)
-    (out_dir / "temp.fasta").unlink(missing_ok=True)
-
-    # Print achieved ratios
-    n_train = len(filtered_train_df)
-    n_val = len(val_df)
-    n_test = len(test_df)
-    n_total = n_train + n_val + n_test
-    print(f"Final split sizes: train={n_train} ({n_train/n_total:.2%}), val={n_val} ({n_val/n_total:.2%}), test={n_test} ({n_test/n_total:.2%})")
+    print(f"Final split sizes: train={len(train_df)} ({len(train_df)/n_dedup:.2%}), val={len(val_df)} ({len(val_df)/n_dedup:.2%}), test={len(test_df)} ({len(test_df)/n_dedup:.2%})")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Split FASTA with MMseqs2 deduplication between train and temp (val+test).E.g.: python split_by_mmseqs2.py \
