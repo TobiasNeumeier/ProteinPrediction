@@ -2,5 +2,6 @@
 .ipynb_checkpoints/
 .vscode/
 __pycache__/
-data/processed/*
+data/processed/unsplit/*
+data/processed/PF01370-20250520T121807Z-1-001/*
 data/split/mmseqs2/*/mmseqs_tmp/*
