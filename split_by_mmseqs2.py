@@ -80,6 +80,11 @@ def main(fasta_path, out_dir, train_size, val_size, test_size, mmseqs_threshold,
     val_relative = val_ratio / (val_ratio + test_ratio)
     val_df, test_df = train_test_split(temp_df, test_size=(1-val_relative), random_state=42)
 
+    # sort by sequence length (for later speedup)
+    train_df = train_df.sort_values(by="length", ascending=False).reset_index(drop=True)
+    val_df = val_df.sort_values(by="length", ascending=False).reset_index(drop=True)
+    test_df = test_df.sort_values(by="length", ascending=False).reset_index(drop=True)
+
     # Save to CSV
     train_df.to_csv(out_dir / "train.csv", index=False)
     val_df.to_csv(out_dir / "val.csv", index=False)

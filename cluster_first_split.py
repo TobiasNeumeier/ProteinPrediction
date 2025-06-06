@@ -94,6 +94,11 @@ def main(fasta_path, out_dir, train_size, val_size, test_size, mmseqs_threshold,
     val_df = fasta_df[fasta_df["header"].isin(split_members["val"])]
     test_df = fasta_df[fasta_df["header"].isin(split_members["test"])]
 
+    # sort by sequence length (for later speedup)
+    train_df = train_df.sort_values(by="length", ascending=False).reset_index(drop=True)
+    val_df = val_df.sort_values(by="length", ascending=False).reset_index(drop=True)
+    test_df = test_df.sort_values(by="length", ascending=False).reset_index(drop=True)
+
     train_df.to_csv(out_dir / "train.csv", index=False)
     val_df.to_csv(out_dir / "val.csv", index=False)
     test_df.to_csv(out_dir / "test.csv", index=False)
