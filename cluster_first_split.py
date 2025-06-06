@@ -51,7 +51,8 @@ def main(fasta_path, out_dir, train_size, val_size, test_size, mmseqs_threshold,
     dedup_df = parse_fasta(rep_fasta)
     dedup_df.to_csv(out_dir / "dedup_sequences.csv", index=False)
     n_dedup = len(dedup_df)
-    print(f"Deduplicated: {n_dedup} sequences remain ({n_dedup/n_total:.2%} of original, {100 - (n_dedup/n_total)*100:.2f}% lost)")
+    
+    #print(f"Deduplicated: {n_dedup} sequences remain ({n_dedup/n_total:.2%} of original, {100 - (n_dedup/n_total)*100:.2f}% lost)")
     cluster_file = mmseqs_dir / "output_cluster.tsv"
     cluster_df = pd.read_csv(cluster_file, sep='\t', header=None, names=["representative", "member"])
     # Cluster-First Split: assign clusters to splits, then assign all members accordingly
@@ -103,6 +104,7 @@ def main(fasta_path, out_dir, train_size, val_size, test_size, mmseqs_threshold,
     val_df.to_csv(out_dir / "val.csv", index=False)
     test_df.to_csv(out_dir / "test.csv", index=False)
     print(f"Final split sizes: train={len(train_df)}, val={len(val_df)}, test={len(test_df)})")
+    print(f"Final ratios: train={len(train_df)/n_total:.2%}, val={len(val_df)/n_total:.2%}, test={len(test_df)/n_total:.2%}")
     meta = {
         "n_total": n_total,
         "n_dedup": n_dedup,
