@@ -91,7 +91,7 @@ def main(dataset, split, out_dir, batch_size=8):
     splits = [split] if split != "all" else ["train", "val", "test"]
     for split_name in splits:
         csv_path = Path(f"{dataset}/{split_name}.csv")
-        proc_dir = Path(out_dir) / dataset / split_name
+        proc_dir = Path(out_dir) / split_name
         proc_dir.mkdir(parents=True, exist_ok=True)
         sys.path.append(str(Path(__file__).parent / "data"))
         from dataloader import ProteinResidueDataset
@@ -104,7 +104,7 @@ def main(dataset, split, out_dir, batch_size=8):
         print(f"Embeddings for {split_name} set of {dataset} saved to {proc_dir}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate ProtT5 embeddings for a dataset split (train/val/test/all)")
+    parser = argparse.ArgumentParser(description="Generate ProtT5 embeddings for a dataset split (train/val/test/all). E.g.: nice python create_prott5_embeddings.py --dataset data/split/mmseqs2/checkpoint_41646 --split all --out_dir data/embeddings/checkpoint_41646")
     parser.add_argument("--dataset", required=True,default="data/split/mmseqs2/checkpoint_41646",  help="Dataset path (e.g. data/split/mmseqs2/checkpoint_41646)")
     parser.add_argument("--split", required=True, choices=["train", "val", "test", "all"], help="Which split to process or 'all' for all splits")
     parser.add_argument("--out_dir", required=True, help="Output directory for embeddings")
