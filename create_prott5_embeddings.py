@@ -90,7 +90,7 @@ def generate_embeddings(loader, tokenizer, model, device, proc_dir):
 def main(dataset, split, out_dir, batch_size=8):
     splits = [split] if split != "all" else ["train", "val", "test"]
     for split_name in splits:
-        csv_path = Path(f"data/split/mmseqs2/{dataset}/{split_name}.csv")
+        csv_path = Path(f"{dataset}/{split_name}.csv")
         proc_dir = Path(out_dir) / dataset / split_name
         proc_dir.mkdir(parents=True, exist_ok=True)
         sys.path.append(str(Path(__file__).parent / "data"))
@@ -105,7 +105,7 @@ def main(dataset, split, out_dir, batch_size=8):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate ProtT5 embeddings for a dataset split (train/val/test/all)")
-    parser.add_argument("--dataset", required=True, help="Dataset name (e.g. pfam_subset_graphpart_400x40)")
+    parser.add_argument("--dataset", required=True,default="data/split/mmseqs2/checkpoint_41646",  help="Dataset path (e.g. data/split/mmseqs2/checkpoint_41646)")
     parser.add_argument("--split", required=True, choices=["train", "val", "test", "all"], help="Which split to process or 'all' for all splits")
     parser.add_argument("--out_dir", required=True, help="Output directory for embeddings")
     parser.add_argument("--batch_size", type=int, default=8, help="Batch size for embedding generation")
