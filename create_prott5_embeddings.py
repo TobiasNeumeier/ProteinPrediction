@@ -15,7 +15,6 @@ def collate_fn(batch):
     labels = torch.tensor([item['label'] for item in batch], dtype=torch.long)
     lengths = torch.tensor([item['length'] for item in batch], dtype=torch.long)
     residue_labels = pad_sequence([item['residue_labels'] for item in batch], batch_first=True, padding_value=0)
-    # Add this line to collect the original sequence strings (not tensors!)
     sequences = [item['sequence'] for item in batch]
     return {
         'accession': accessions,
@@ -45,8 +44,8 @@ def generate_embeddings(loader, tokenizer, model, device, proc_dir):
         for i in range(len(batch['accession'])):
             sequence = batch['sequence'][i]
             length = batch['length'][i].item()
-            raw_seq = "".join(map(str, sequence[:length].tolist()))
-            raw_seq = re.sub(r"[UZOB]", "X", raw_seq)
+            #raw_seq = "".join(map(str, sequence[:length].tolist()))
+            raw_seq = " ".join(list(re.sub(r"[UZOB]", "X", sequence)))  # re.sub(r"[UZOB]", "X", raw_seq)
             seq = "<AA2fold> " + " ".join(list(raw_seq))
             raw_seqs.append(seq)
             lengths.append(length)
