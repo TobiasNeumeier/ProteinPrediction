@@ -88,23 +88,25 @@ def generate_embeddings(loader, tokenizer, model, device, proc_dir):
 
 
 def main(dataset, split, out_dir, batch_size=8):
-    csv_path = Path(f"data/split/mmseqs2/{dataset}/{split}.csv")
-    proc_dir = Path(out_dir) / dataset / split
-    proc_dir.mkdir(parents=True, exist_ok=True)
-    sys.path.append(str(Path(__file__).parent / "data"))
-    from dataloader import ProteinResidueDataset
-    dataset_obj = ProteinResidueDataset(str(csv_path))
-    sampler = SequentialSampler(dataset_obj)
-    loader = DataLoader(dataset_obj, batch_size=batch_size, shuffle=False, sampler=sampler, collate_fn=collate_fn)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    tokenizer, model = load_prott5(device)
-    generate_embeddings(loader, tokenizer, model, device, proc_dir)
-    print(f"Embeddings for {split} set of {dataset} saved to {proc_dir}")
+    splits = [split] if split != "all" else ["train", "val", "test"]
+    for split_name in splits:
+        csv_path = Path(f"data/split/mmseqs2/{dataset}/{split_name}.csv")
+        proc_dir = Path(out_dir) / dataset / split_name
+        proc_dir.mkdir(parents=True, exist_ok=True)
+        sys.path.append(str(Path(__file__).parent / "data"))
+        from dataloader import ProteinResidueDataset
+        dataset_obj = ProteinResidueDataset(str(csv_path))
+        sampler = SequentialSampler(dataset_obj)
+        loader = DataLoader(dataset_obj, batch_size=batch_size, shuffle=False, sampler=sampler, collate_fn=collate_fn)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        tokenizer, model = load_prott5(device)
+        generate_embeddings(loader, tokenizer, model, device, proc_dir)
+        print(f"Embeddings for {split_name} set of {dataset} saved to {proc_dir}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate ProtT5 embeddings for a dataset split (train/val/test)")
+    parser = argparse.ArgumentParser(description="Generate ProtT5 embeddings for a dataset split (train/val/test/all)")
     parser.add_argument("--dataset", required=True, help="Dataset name (e.g. pfam_subset_graphpart_400x40)")
-    parser.add_argument("--split", required=True, choices=["train", "val", "test"], help="Which split to process")
+    parser.add_argument("--split", required=True, choices=["train", "val", "test", "all"], help="Which split to process or 'all' for all splits")
     parser.add_argument("--out_dir", required=True, help="Output directory for embeddings")
     parser.add_argument("--batch_size", type=int, default=8, help="Batch size for embedding generation")
     args = parser.parse_args()
