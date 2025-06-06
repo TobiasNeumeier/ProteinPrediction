@@ -9,16 +9,13 @@ import json
 
 def parse_fasta(fasta_path):
     records = list(SeqIO.parse(fasta_path, "fasta"))
-
     def extract_start_stop(label):
         match = re.search(r'-(\d+)-(\d+)$', label)
         if match:
             return int(match.group(1)), int(match.group(2))
         return None, None
-
     labels = [rec.id.split('|')[1].replace("label=", "", 1) for rec in records]
     starts, stops = zip(*(extract_start_stop(label) for label in labels))
-
     return pd.DataFrame({
         "AC": [rec.id.split('|')[0] for rec in records],
         "label": labels,
@@ -37,68 +34,78 @@ def write_fasta(df, path):
 def main(fasta_path, out_dir, train_size, val_size, test_size, mmseqs_threshold, cov=0.8, cov_mode=2):
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-
     fasta_path_base = Path(fasta_path).name
     out_dir = out_dir / fasta_path_base.replace('.fasta', '')
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output directory: {out_dir}")
-
     fasta_df = parse_fasta(fasta_path)
     n_total = len(fasta_df)
-
-    # 1. MMseqs2 easy-cluster for deduplication
-    mmseqs_dir = out_dir 
-
-    # Run easy-cluster
+    mmseqs_dir = out_dir
     subprocess.run([
         "mmseqs", "easy-cluster", str(fasta_path), str(mmseqs_dir /  "output" ), str(mmseqs_dir /  "tmp" ),
         "--min-seq-id", str(mmseqs_threshold),
         "-c", str(cov),
         "--cov-mode", str(cov_mode)
     ], check=True)
-
-    # The deduplicated fasta is at mmseqs_dir/rep_seq.fasta
     rep_fasta = mmseqs_dir / "output_rep_seq.fasta"
     dedup_df = parse_fasta(rep_fasta)
     dedup_df.to_csv(out_dir / "dedup_sequences.csv", index=False)
     n_dedup = len(dedup_df)
     print(f"Deduplicated: {n_dedup} sequences remain ({n_dedup/n_total:.2%} of original, {100 - (n_dedup/n_total)*100:.2f}% lost)")
-
-    # Count clusters (number of lines in cluster.tsv)
     cluster_file = mmseqs_dir / "output_cluster.tsv"
-    with open(cluster_file) as f:
-        n_clusters = sum(1 for _ in f)
-    print(f"Number of clusters: {n_clusters}")
+    cluster_df = pd.read_csv(cluster_file, sep='\t', header=None, names=["representative", "member"])
+    # Cluster-First Split: assign clusters to splits, then assign all members accordingly
+    clusters = cluster_df.groupby("representative")["member"].apply(list).reset_index()
+    clusters = clusters.sample(frac=1, random_state=42).reset_index(drop=True)  # shuffle clusters
 
-    # 2. Split into train/val/test
+    # Calculate target sizes (number of sequences, not clusters)
     total = train_size + val_size + test_size
-    train_ratio = train_size / total
-    val_ratio = val_size / total
-    test_ratio = test_size / total
+    n_total_seqs = len(fasta_df)
+    target_train = int(train_size / total * n_total_seqs)
+    target_val = int(val_size / total * n_total_seqs)
+    target_test = n_total_seqs - target_train - target_val
 
-    train_df, temp_df = train_test_split(dedup_df, test_size=(1-train_ratio), random_state=42)
-    val_relative = val_ratio / (val_ratio + test_ratio)
-    val_df, test_df = train_test_split(temp_df, test_size=(1-val_relative), random_state=42)
+    # Assign clusters greedily to get as close as possible to target sizes
+    split_assignments = []
+    split_counts = {"train": 0, "val": 0, "test": 0}
+    split_targets = {"train": target_train, "val": target_val, "test": target_test}
+    split_order = ["train", "val", "test"]
 
-    # Save to CSV
+    for _, row in clusters.iterrows():
+        # Decide which split needs this cluster most (least over target)
+        best_split = min(
+            split_order,
+            key=lambda split: (
+                split_counts[split] + len(row["member"]))/split_targets[split]
+                if split_counts[split] < split_targets[split] else float('inf')
+        )
+        # If all splits are full, assign to the one with the least overflow
+        if best_split == "test" and split_counts["test"] >= split_targets["test"]:
+            best_split = min(split_order, key=lambda split: split_counts[split] - split_targets[split])
+        split_assignments.append((best_split, row["member"]))
+        split_counts[best_split] += len(row["member"])
+
+    # Collect members for each split
+    split_members = {"train": [], "val": [], "test": []}
+    for split, members in split_assignments:
+        split_members[split].extend(members)
+
+    train_df = fasta_df[fasta_df["header"].isin(split_members["train"])]
+    val_df = fasta_df[fasta_df["header"].isin(split_members["val"])]
+    test_df = fasta_df[fasta_df["header"].isin(split_members["test"])]
+
     train_df.to_csv(out_dir / "train.csv", index=False)
     val_df.to_csv(out_dir / "val.csv", index=False)
     test_df.to_csv(out_dir / "test.csv", index=False)
-
-    print(f"Final split sizes: train={len(train_df)} ({len(train_df)/n_dedup:.2%}), val={len(val_df)} ({len(val_df)/n_dedup:.2%}), test={len(test_df)} ({len(test_df)/n_dedup:.2%})")
-
-    # Save meta data
+    print(f"Final split sizes: train={len(train_df)}, val={len(val_df)}, test={len(test_df)})")
     meta = {
         "n_total": n_total,
         "n_dedup": n_dedup,
-        "n_clusters": n_clusters,
+        "n_clusters": len(clusters),
         "percent_lost": 100 - (n_dedup / n_total) * 100,
         "train_size": len(train_df),
         "val_size": len(val_df),
         "test_size": len(test_df),
-        "train_ratio": len(train_df) / n_dedup,
-        "val_ratio": len(val_df) / n_dedup,
-        "test_ratio": len(test_df) / n_dedup,
         "mmseqs_min_seq_id": mmseqs_threshold,
         "mmseqs_cov": cov,
         "mmseqs_cov_mode": cov_mode
@@ -107,7 +114,7 @@ def main(fasta_path, out_dir, train_size, val_size, test_size, mmseqs_threshold,
         json.dump(meta, f, indent=2)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Split FASTA with MMseqs2 easy-cluster deduplication and train/val/test split.")
+    parser = argparse.ArgumentParser(description="Cluster-First Split: Assign clusters to train/val/test.")
     parser.add_argument("--fasta", required=True, help="Path to input FASTA file")
     parser.add_argument("--out_dir", required=True, help="Output directory for split CSVs")
     parser.add_argument("--train_size", type=float, default=0.7, help="Proportion for train set (default: 0.7)")
