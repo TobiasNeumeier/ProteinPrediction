@@ -44,13 +44,13 @@ def generate_embeddings(loader, tokenizer, model, device, proc_dir):
         for i in range(len(batch['accession'])):
             sequence = batch['sequence'][i]
             length = batch['length'][i].item()
-            #raw_seq = "".join(map(str, sequence[:length].tolist()))
-            raw_seq = " ".join(list(re.sub(r"[UZOB]", "X", sequence)))  # re.sub(r"[UZOB]", "X", raw_seq)
+            # add whitespace between characters and replace U, Z, O, B with X
+            raw_seq = " ".join(list(re.sub(r"[UZOB]", "X", sequence)))  
             seq = "<AA2fold> " + " ".join(list(raw_seq))
             raw_seqs.append(seq)
             lengths.append(length)
-            if i == 4:
-                print(f"E.g. seq: {seq} with length {length} for accession {batch['accession'][i]}")
+            #if i == 4:
+            #   print(f"E.g. seq: {seq} with length {length} for accession {batch['accession'][i]}")
         
         # Tokenize with padding
         tokens = tokenizer.batch_encode_plus(
