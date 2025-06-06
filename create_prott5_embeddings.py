@@ -40,7 +40,7 @@ def generate_embeddings(loader, tokenizer, model, device, proc_dir):
         lengths = []
         # Prepare sequences for tokenization
         for i in range(len(batch['accession'])):
-            sequence = batch['residue_labels'][i]
+            sequence = batch['sequence'][i]
             length = batch['length'][i].item()
             raw_seq = "".join(map(str, sequence[:length].tolist()))
             raw_seq = re.sub(r"[UZOB]", "X", raw_seq)

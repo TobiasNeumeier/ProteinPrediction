@@ -35,5 +35,6 @@ class ProteinResidueDataset(Dataset):
             'accession': row['AC'],
             'label': self.label_to_index[row['family']],
             'residue_labels': label_mask,
-            'length': length
+            'length': length,
+            'sequence': row['sequence']
         }
