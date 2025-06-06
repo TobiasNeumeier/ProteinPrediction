@@ -15,11 +15,14 @@ def collate_fn(batch):
     labels = torch.tensor([item['label'] for item in batch], dtype=torch.long)
     lengths = torch.tensor([item['length'] for item in batch], dtype=torch.long)
     residue_labels = pad_sequence([item['residue_labels'] for item in batch], batch_first=True, padding_value=0)
+    # Add this line to collect the original sequence strings (not tensors!)
+    sequences = [item['sequence'] for item in batch]
     return {
         'accession': accessions,
         'label': labels,
         'residue_labels': residue_labels,
-        'length': lengths
+        'length': lengths,
+        'sequence': sequences
     }
 
 def load_prott5(device):
