@@ -47,6 +47,8 @@ def generate_embeddings(loader, tokenizer, model, device, proc_dir):
             seq = "<AA2fold> " + " ".join(list(raw_seq))
             raw_seqs.append(seq)
             lengths.append(length)
+            if i == 4:
+                print(f"E.g. seq: {seq} with length {length} for accession {batch['accession'][i]}")
         
         # Tokenize with padding
         tokens = tokenizer.batch_encode_plus(
@@ -56,26 +58,10 @@ def generate_embeddings(loader, tokenizer, model, device, proc_dir):
             add_special_tokens=True  # Adds EOS token!
         ).to(device)
         
-        with torch.no_grad():
-            embedding_repr  = model(**tokens)
-        
-        # # Remove prefix & EOS from embeddings and mask
-        # residue_embeddings = outputs.last_hidden_state[:, 1:-1]  # Remove <AA2fold> and </s>
-        # mask = tokens.attention_mask[:, 1:-1]  # Corresponding mask
-        
-        for i, accession in enumerate(batch['accession']):
-            # Extract non-padding embeddings
-            emb = embedding_repr.last_hidden_state[i,1:lengths[i]+1]
-            labels = batch['residue_labels'][i][:length]
-            
-            torch.save(emb.cpu(), proc_dir / f"{accession}_embedding.pt")
-            torch.save(labels.cpu(), proc_dir / f"{accession}_labels.pt")
-
-        tokens = tokenizer.batch_encode_plus(
-            raw_seqs, return_tensors="pt", padding=True, add_special_tokens=True
-        ).to(device)
+        # Get the embeddings
         with torch.no_grad():
             output = model(**tokens).last_hidden_state
+
         for i, accession in enumerate(batch['accession']): 
             # Remove prefix token and padding
             emb = output[i, 1:lengths[i]+1]  
@@ -83,7 +69,7 @@ def generate_embeddings(loader, tokenizer, model, device, proc_dir):
             torch.save(emb.cpu(), proc_dir / f"{accession}_embedding.pt")
             torch.save(labels.cpu(), proc_dir / f"{accession}_labels.pt")
             # print only once as an example one protein, embedded and shape
-            if i == 0:
+            if i == 4:
                 print(f"E.g.: Embedded protein of length {lengths[i]} to emb. of shape: {emb.shape}. labels: {labels.shape}. seq: {accession}")
 
 
