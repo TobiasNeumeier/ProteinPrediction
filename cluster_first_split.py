@@ -6,23 +6,35 @@ from Bio import SeqIO
 import subprocess
 import re
 import json
+import time
 
 def parse_fasta(fasta_path):
     records = list(SeqIO.parse(fasta_path, "fasta"))
+
     def extract_start_stop(label):
         match = re.search(r'-(\d+)-(\d+)$', label)
         if match:
             return int(match.group(1)), int(match.group(2))
         return None, None
+
     labels = [rec.id.split('|')[1].replace("label=", "", 1) for rec in records]
     starts, stops = zip(*(extract_start_stop(label) for label in labels))
+    # Extract family IDs (remove -x-y at the end)
+    fam_ids = [re.sub(r'-\d+-\d+$', '', label) for label in labels]
+    print(f"found {len(set(fam_ids))} unique families in the dataset. First 10: {list(set(fam_ids))[:10]}")
+    # Create mapping: family ID -> unique integer (starting from 1)
+    fam_id_to_num = {fam: i+1 for i, fam in enumerate(sorted(set(fam_ids)))}
+    fam_id_nums = [fam_id_to_num[fam] for fam in fam_ids]
+ 
     return pd.DataFrame({
         "AC": [rec.id.split('|')[0] for rec in records],
         "label": labels,
+        "fam_id": fam_ids,
+        "fam_id_num": fam_id_nums,
+        "unique_fam_ids":  len(set(fam_ids)),
         "start": starts,
         "end": stops,
         "length": [len(rec.seq) for rec in records],
-        "header": [rec.id for rec in records],
         "sequence": [str(rec.seq) for rec in records]
     })
 
@@ -31,7 +43,10 @@ def write_fasta(df, path):
         for _, row in df.iterrows():
             f.write(f">{row['header']}\n{row['sequence']}\n")
 
+
 def main(fasta_path, out_dir, train_size, val_size, test_size, mmseqs_threshold, cov=0.8, cov_mode=2):
+    start = time.time()
+    print(f"Starting clustering and splitting at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start))}")
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     fasta_path_base = Path(fasta_path).name
@@ -47,12 +62,14 @@ def main(fasta_path, out_dir, train_size, val_size, test_size, mmseqs_threshold,
         "-c", str(cov),
         "--cov-mode", str(cov_mode)
     ], check=True)
+
+    # also save deduplicated sequences for funsies
     rep_fasta = mmseqs_dir / "output_rep_seq.fasta"
     dedup_df = parse_fasta(rep_fasta)
     dedup_df.to_csv(out_dir / "dedup_sequences.csv", index=False)
     n_dedup = len(dedup_df)
-    
     #print(f"Deduplicated: {n_dedup} sequences remain ({n_dedup/n_total:.2%} of original, {100 - (n_dedup/n_total)*100:.2f}% lost)")
+    
     cluster_file = mmseqs_dir / "output_cluster.tsv"
     cluster_df = pd.read_csv(cluster_file, sep='\t', header=None, names=["representative", "member"])
     # Cluster-First Split: assign clusters to splits, then assign all members accordingly
@@ -105,6 +122,7 @@ def main(fasta_path, out_dir, train_size, val_size, test_size, mmseqs_threshold,
     test_df.to_csv(out_dir / "test.csv", index=False)
     print(f"Final split sizes: train={len(train_df)}, val={len(val_df)}, test={len(test_df)})")
     print(f"Final ratios: train={len(train_df)/n_total:.2%}, val={len(val_df)/n_total:.2%}, test={len(test_df)/n_total:.2%}")
+    print(f"Total time taken: {time.time() - start:.2f} seconds")
     meta = {
         "n_total": n_total,
         "n_dedup": n_dedup,

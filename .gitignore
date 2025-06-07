@@ -7,4 +7,5 @@ data/processed/PF01370-20250520T121807Z-1-001/PF01370/*
 data/split/mmseqs2/*/mmseqs_tmp/*
 data/embeddings/PF01370-20250520T121807Z-1-001/
 data/embeddings/unsplit/
+data/fasta/checkpoint_*
 .gitignore

@@ -12,15 +12,21 @@ from torch.nn.utils.rnn import pad_sequence
 
 def collate_fn(batch):
     accessions = [item['accession'] for item in batch]
+    label_strs = [item['label_str'] for item in batch]
     labels = torch.tensor([item['label'] for item in batch], dtype=torch.long)
     lengths = torch.tensor([item['length'] for item in batch], dtype=torch.long)
+    starts = torch.tensor([item['start'] for item in batch], dtype=torch.long)
+    ends = torch.tensor([item['end'] for item in batch], dtype=torch.long)
     residue_labels = pad_sequence([item['residue_labels'] for item in batch], batch_first=True, padding_value=0)
     sequences = [item['sequence'] for item in batch]
     return {
         'accession': accessions,
+        'label_str': label_strs,
         'label': labels,
         'residue_labels': residue_labels,
         'length': lengths,
+        'start': starts,
+        'end': ends,
         'sequence': sequences
     }
 
