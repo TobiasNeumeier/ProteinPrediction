@@ -88,7 +88,7 @@ def main(dataset, split, out_dir, batch_size=8):
         proc_dir = Path(out_dir) / split_name
         proc_dir.mkdir(parents=True, exist_ok=True)
         sys.path.append(str(Path(__file__).parent / "data"))
-        from dataloader import ProteinResidueDataset
+        from data.dataloader import ProteinResidueDataset
         dataset_obj = ProteinResidueDataset(str(csv_path))
         sampler = SequentialSampler(dataset_obj)
         loader = DataLoader(dataset_obj, batch_size=batch_size, shuffle=False, sampler=sampler, collate_fn=collate_fn)

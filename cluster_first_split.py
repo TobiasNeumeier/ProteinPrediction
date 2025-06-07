@@ -35,7 +35,8 @@ def parse_fasta(fasta_path):
         "start": starts,
         "end": stops,
         "length": [len(rec.seq) for rec in records],
-        "sequence": [str(rec.seq) for rec in records]
+        "header": [rec.id for rec in records],
+        "sequence": [str(rec.seq) for rec in records],
     })
 
 def write_fasta(df, path):
