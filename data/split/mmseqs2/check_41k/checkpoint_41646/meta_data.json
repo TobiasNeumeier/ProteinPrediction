@@ -1,0 +1,12 @@
+{
+  "n_total": 41646,
+  "n_dedup": 3442,
+  "n_clusters": 3442,
+  "percent_lost": 91.73510060990252,
+  "train_size": 29129,
+  "val_size": 8357,
+  "test_size": 4160,
+  "mmseqs_min_seq_id": 0.3,
+  "mmseqs_cov": 0.8,
+  "mmseqs_cov_mode": 1
+}
