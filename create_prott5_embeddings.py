@@ -7,12 +7,13 @@ from tqdm import tqdm
 import re
 import os
 import sys
+import h5py
 import pandas as pd
 from torch.nn.utils.rnn import pad_sequence
 
 def collate_fn(batch):
     accessions = [item['accession'] for item in batch]
-    label_strs = [item['label_str'] for item in batch]
+    fam_ids = [item['fam_id'] for item in batch]
     labels = torch.tensor([item['label'] for item in batch], dtype=torch.long)
     lengths = torch.tensor([item['length'] for item in batch], dtype=torch.long)
     starts = torch.tensor([item['start'] for item in batch], dtype=torch.long)
@@ -21,7 +22,7 @@ def collate_fn(batch):
     sequences = [item['sequence'] for item in batch]
     return {
         'accession': accessions,
-        'label_str': label_strs,
+        'fam_id': fam_ids,
         'label': labels,
         'residue_labels': residue_labels,
         'length': lengths,
@@ -42,43 +43,44 @@ def load_prott5(device):
     model.eval()
     return tokenizer, model
 
-def generate_embeddings(loader, tokenizer, model, device, proc_dir):
-    for batch in tqdm(loader, desc="Generating embeddings"):
-        raw_seqs = []
-        lengths = []
-        # Prepare sequences for tokenization
-        for i in range(len(batch['accession'])):
-            sequence = batch['sequence'][i]
-            length = batch['length'][i].item()
-            # add whitespace between characters and replace U, Z, O, B with X
-            raw_seq = " ".join(list(re.sub(r"[UZOB]", "X", sequence)))  
-            seq = "<AA2fold> " + " ".join(list(raw_seq))
-            raw_seqs.append(seq)
-            lengths.append(length)
-            #if i == 4:
-            #   print(f"E.g. seq: {seq} with length {length} for accession {batch['accession'][i]}")
-        
-        # Tokenize with padding
-        tokens = tokenizer.batch_encode_plus(
-            raw_seqs, 
-            return_tensors="pt", 
-            padding="longest",  # Pad to longest sequence in batch
-            add_special_tokens=True  # Adds EOS token!
-        ).to(device)
-        
-        # Get the embeddings
-        with torch.no_grad():
-            output = model(**tokens).last_hidden_state
+def generate_embeddings(loader, tokenizer, model, device, proc_dir, h5_file="all_embeddings_and_labels.h5"):
+    emb_path = proc_dir / h5_file
 
-        for i, accession in enumerate(batch['accession']): 
-            # Remove prefix token and padding
-            emb = output[i, 1:lengths[i]+1]  
-            labels = batch['residue_labels'][i][:lengths[i]]
-            torch.save(emb.cpu(), proc_dir / f"{accession}_embedding.pt")
-            torch.save(labels.cpu(), proc_dir / f"{accession}_labels.pt")
-            # print only once as an example one protein, embedded and shape
-            if i == 4:
-                print(f"E.g.: Embedded protein of length {lengths[i]} to emb. of shape: {emb.shape}. labels: {labels.shape}. seq: {accession}")
+    with h5py.File(str(emb_path), "w") as hf:
+        emb_group = hf.create_group("embeddings")
+        label_group = hf.create_group("labels")
+
+        for batch in tqdm(loader, desc="Generating embeddings"):
+            raw_seqs = []
+            lengths = []
+
+            for i in range(len(batch['accession'])):
+                sequence = batch['sequence'][i]
+                length = batch['length'][i].item()
+                raw_seq = " ".join(list(re.sub(r"[UZOB]", "X", sequence)))
+                seq = "<AA2fold> " + raw_seq
+                raw_seqs.append(seq)
+                lengths.append(length)
+
+            tokens = tokenizer.batch_encode_plus(
+                raw_seqs,
+                return_tensors="pt",
+                padding="longest",
+                add_special_tokens=True
+            ).to(device)
+
+            with torch.no_grad():
+                output = model(**tokens).last_hidden_state
+
+            for i, accession in enumerate(batch['accession']):
+                emb = output[i, 1:lengths[i]+1].cpu().numpy()
+                label = batch['residue_labels'][i][:lengths[i]].cpu().numpy()
+
+                emb_group.create_dataset(accession, data=emb)
+                label_group.create_dataset(accession, data=label)
+
+                if i == 4:
+                    print(f"E.g.: {accession} | emb shape: {emb.shape}, label shape: {label.shape}")
 
 
 def main(dataset, split, out_dir, batch_size=8):
