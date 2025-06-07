@@ -81,7 +81,7 @@ def parse_pfam_block(block, max_seqs_per_fam=10):
     # Extract Pfam domain ID
     for line in block.splitlines():
         if line.startswith("#=GF AC"):
-            pfam_id = line.strip().split()[2]  # line: "#=GF ID PF00069"
+            pfam_id = line.strip().split()[2]  # line: "#=GF AC PF00069"
             break
     
     res = []
