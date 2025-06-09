@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import random
+import optuna
 
 
 # ----------------------------------
@@ -86,7 +87,6 @@ sequences = ["MSSDTHGTDLADGDVLVTGAAGFIGSHLVTELRNSGRNVVAVDRRPLPDDLESTSPPFTGSLREIR
 labels = [[1 if 15 <= i <= 249 else 0 for i in range(len(sequences[0]))]]
 
 dataset = SequenceDataset(sequences, labels, len(sequences[0]))
-dataloader = DataLoader(dataset, batch_size=config["batch_size"], shuffle=True)
 
 
 # ----------------------------------
@@ -121,15 +121,101 @@ def train(model, dataloader, config):
         avg_loss = total_loss / len(dataloader)
         print(f"Epoch {epoch+1}/{config['epochs']} - Loss: {avg_loss:.4f}")
 
+def objective(trial):
+    # Sample hyperparameters
+    learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-2, log=True)
+    batch_size = trial.suggest_categorical("batch_size", [1, 2, 4])
+    model_name = trial.suggest_categorical("model_name", ["original"])
+    max_epochs = 30  # Shorter for tuning
+
+    # Update config
+    config.update({
+        "learning_rate": learning_rate,
+        "batch_size": batch_size,
+        "model_name": model_name,
+        "epochs": max_epochs,
+    })
+
+    # Recreate dataloader with new batch size
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+    # Instantiate model
+    model_class = MODEL_REGISTRY[model_name]
+    model = model_class(num_classes=config["num_classes"]).to(config["device"])
+
+    # Loss and optimizer
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+
+    best_val_loss = float('inf')
+    patience = 5
+    patience_counter = 0
+
+    for epoch in range(max_epochs):
+        model.train()
+        running_loss = 0.0
+
+        for inputs, targets in dataloader:
+            inputs = inputs.to(config["device"])
+            targets = targets.to(config["device"])
+
+            optimizer.zero_grad()
+            outputs, _ = model(inputs)
+
+            outputs = outputs.view(-1, config["num_classes"])
+            targets = targets.view(-1)
+
+            loss = criterion(outputs, targets)
+            loss.backward()
+            optimizer.step()
+
+            running_loss += loss.item()
+
+        avg_loss = running_loss / len(dataloader)
+
+        # Report to Optuna (used for pruning)
+        trial.report(avg_loss, epoch)
+
+        # Early stopping with Optuna pruning
+        if trial.should_prune():
+            raise optuna.TrialPruned()
+
+        # Manual early stopping (optional)
+        if avg_loss < best_val_loss:
+            best_val_loss = avg_loss
+            patience_counter = 0
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                break  # Stop training early
+
+    return best_val_loss
+
+
 
 # ----------------------------------
 # 🧪 EXECUTION
 # ----------------------------------
-def main(config):
-    model_class = MODEL_REGISTRY[config["model_name"].lower()]
-    model = model_class(num_classes=config["num_classes"])
-    train(model, dataloader, config)
-
-
 if __name__ == "__main__":
-    main(config)
+    study = optuna.create_study(direction="minimize")
+    study.optimize(objective, n_trials=20)
+
+    print("Best trial:")
+    print("  Value: ", study.best_trial.value)
+    print("  Params: ")
+    for key, value in study.best_trial.params.items():
+        print(f"    {key}: {value}")
+
+
+    # Extract best hyperparameters
+    best_params = study.best_trial.params
+    config.update(best_params)
+    config["epochs"] = 100  # train longer now
+
+    # Rebuild dataloader (in case batch size changed)
+    dataloader = DataLoader(dataset, batch_size=config["batch_size"], shuffle=True)
+
+    # Retrain final model
+    final_model_class = MODEL_REGISTRY[config["model_name"]]
+    final_model = final_model_class(num_classes=config["num_classes"])
+    train(final_model, dataloader, config)
