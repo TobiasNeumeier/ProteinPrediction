@@ -21,7 +21,7 @@ def parse_fasta(fasta_path):
     starts, stops = zip(*(extract_start_stop(label) for label in labels))
     # Extract family IDs (remove -x-y at the end)
     fam_ids = [re.sub(r'-\d+-\d+$', '', label) for label in labels]
-    print(f"Found {len(set(fam_ids))} unique families in the {fasta_path.name}. First 10: {list(set(fam_ids))[:10]}")
+    print(f"Found {len(set(fam_ids))} unique families in the {Path(fasta_path).name}. First 10: {list(set(fam_ids))[:10]}")
     # Create mapping: family ID -> unique integer (starting from 1)
     fam_id_to_num = {fam: i+1 for i, fam in enumerate(sorted(set(fam_ids)))}
     fam_id_nums = [fam_id_to_num[fam] for fam in fam_ids]
