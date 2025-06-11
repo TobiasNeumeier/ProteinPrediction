@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import DataLoader, SequentialSampler
 from transformers import T5Tokenizer, T5EncoderModel
 from tqdm import tqdm
+import gc
 import re
 import os
 import sys
@@ -85,6 +86,9 @@ def generate_embeddings(loader, tokenizer, model, device, proc_dir, h5_file="all
 
 def main(dataset, split, out_dir, batch_size=8):
     splits = [split] if split != "all" else ["train", "val", "test"]
+    if split == "all":
+        print("\nAttention: Processing all splits: train, val, test may cause memory issues if the dataset is large. Consider processing them separately.\n")
+    tokenizer, model = load_prott5(device)
     for split_name in splits:
         csv_path = Path(f"{dataset}/{split_name}.csv")
         proc_dir = Path(out_dir) / split_name
@@ -95,9 +99,13 @@ def main(dataset, split, out_dir, batch_size=8):
         sampler = SequentialSampler(dataset_obj)
         loader = DataLoader(dataset_obj, batch_size=batch_size, shuffle=False, sampler=sampler, collate_fn=collate_fn)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        tokenizer, model = load_prott5(device)
         generate_embeddings(loader, tokenizer, model, device, proc_dir)
         print(f"Embeddings for {split_name} set of {dataset} saved to {proc_dir}")
+        # some attempts to free memory
+        del dataset_obj, loader, sampler
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate ProtT5 embeddings for a dataset split (train/val/test/all). E.g.: nice python create_prott5_embeddings.py --dataset data/split/mmseqs2/checkpoint_41646 --split all --out_dir data/embeddings/checkpoint_41646")
