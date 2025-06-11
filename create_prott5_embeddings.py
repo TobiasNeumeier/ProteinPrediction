@@ -86,6 +86,7 @@ def generate_embeddings(loader, tokenizer, model, device, proc_dir, h5_file="all
 
 def main(dataset, split, out_dir, batch_size=8):
     splits = [split] if split != "all" else ["train", "val", "test"]
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if split == "all":
         print("\nAttention: Processing all splits: train, val, test may cause memory issues if the dataset is large. Consider processing them separately.\n")
     tokenizer, model = load_prott5(device)
