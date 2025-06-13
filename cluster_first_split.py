@@ -8,7 +8,10 @@ import re
 import json
 import time
 
-def parse_fasta(fasta_path):
+def parse_fasta(fasta_path: Path):
+    if type(fasta_path) is str:
+        fasta_path = Path(fasta_path)
+    
     records = list(SeqIO.parse(fasta_path, "fasta"))
 
     def extract_start_stop(label):
