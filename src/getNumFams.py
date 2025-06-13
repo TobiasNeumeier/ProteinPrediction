@@ -32,5 +32,5 @@ def build_pf_label_index(csv_paths, output_json="./label_index.json"):
 
 # Usage
 if __name__ == "__main__":
-    count_unique_pf_labels("./train.csv")
+    #count_unique_pf_labels("./train.csv")
     build_pf_label_index(["./train.csv","./test.csv","./val.csv"])
