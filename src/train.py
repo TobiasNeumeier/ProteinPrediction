@@ -222,7 +222,7 @@ def objective(trial):
 # ----------------------------------
 if __name__ == "__main__":
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective, n_trials=2)
+    study.optimize(objective, n_trials=5)
 
     print("Best trial:")
     print("  Value: ", study.best_trial.value)
@@ -255,11 +255,11 @@ if __name__ == "__main__":
     patience = 30
     patience_counter = 0
 
-    for epoch in range(100000):
+    for epoch in range(1000):
         model.train()
         running_loss = 0.0
         running_acc = 0.0
-        progress_bar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{100000}", leave=False)
+        progress_bar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{1000}", leave=False)
         for batch in progress_bar:
             #print(inputs)
             inputs = batch["embeddings"].to(config["device"])         # [B, L, 21]
