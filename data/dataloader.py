@@ -6,7 +6,7 @@ class ProteinResidueDataset(Dataset):
     def __init__(self, csv_path):
         self.df = pd.read_csv(csv_path)
         # Use fam_id and fam_id_num columns
-        self.num_fams = self.df['fam_id_num'].max()
+        self.num_fams = self.df['fam_id_num'].nunique()
         self.fam_id_to_num = {row['fam_id']: row['fam_id_num'] for _, row in self.df.iterrows()}
 
     def __len__(self):
