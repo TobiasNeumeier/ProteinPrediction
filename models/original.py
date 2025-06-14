@@ -23,10 +23,19 @@ class ResidualBlock(nn.Module):
 
 
 class OriginalModel(nn.Module):
-    def __init__(self, num_classes=19632, num_blocks=5, channels=256):
+    def __init__(self, num_classes=19632, num_blocks=5, channels=256, input_size=21):
         super().__init__()
 
-        self.input_layer = nn.Conv1d(21, channels, kernel_size=3, padding=1)  # 21 for amino acids + gap/mask
+        self.embedding_layer = nn.Sequential(nn.Conv1d(input_size, 1100, kernel_size=3, padding=1),
+                                         nn.BatchNorm1d(1100),
+                                         nn.ReLU())
+
+
+        self.input_layer = nn.Sequential(nn.Conv1d(1100, channels, kernel_size=3, padding=1),
+                                         nn.BatchNorm1d(channels),
+                                         nn.ReLU())
+        
+        
 
 
         self.res_blocks = nn.Sequential(*[
@@ -41,14 +50,14 @@ class OriginalModel(nn.Module):
     def forward(self, x_onehot):
         """
         Args:
-            x_onehot: Tensor of shape [batch_size, seq_len, 21] (one-hot encoded input)
+            x_onehot: Tensor of shape [batch_size, seq_len, input_size] (one-hot encoded input)
         Returns:
             logits: [batch_size, seq_len, num_classes]
             embeddings: [batch_size, seq_len, embedding_dim]
         """
-        x = x_onehot.permute(0, 2, 1)  # → [batch_size, 21, seq_len]
+        x = x_onehot.permute(0, 2, 1)  # → [batch_size, input_size, seq_len]
         x = self.input_layer(x)        # → [batch_size, channels, seq_len]
-        x = self.res_blocks(x)   
+        x = self.res_blocks(x)   # → [batch_size, channels, seq_len]
         x = x.permute(0, 2, 1)    # → [batch_size, seq_len, channels]
         logits = self.classifier(x) # → [batch_size, seq_len, num_classes]
         return logits, x
