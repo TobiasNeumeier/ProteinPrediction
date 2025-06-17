@@ -1,6 +1,8 @@
 import torch
 from torch.utils.data import Dataset
 import pandas as pd
+import h5py
+from torch.nn.utils.rnn import pad_sequence
 
 class ProteinResidueDataset(Dataset):
     def __init__(self, csv_path):
