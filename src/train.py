@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 # Model and Dataset imports
 sys.path.append(os.path.abspath('../models'))
-from Dataset import ProteinCSVWindowDataset, collate_fn_window
+from Dataset import ProteinCSVWindowDataset, ProteinEmbeddingWithLabelsDataset, collate_fn_window
 from original import OriginalModel
 from small import SmallModel
 
@@ -157,8 +157,10 @@ def train_model(model, dataloader, val_loader, config, run, criterion, optimizer
 # ----------------------------
 if __name__ == "__main__":
     seed_everything()
-    dataset = ProteinCSVWindowDataset("./train.csv")
-    valDataset = ProteinCSVWindowDataset("./val.csv")
+    #dataset = ProteinCSVWindowDataset("./train.csv")
+    #valDataset = ProteinCSVWindowDataset("./val.csv")
+    dataset = ProteinEmbeddingWithLabelsDataset("./test.hdf5")
+    valDataset = ProteinEmbeddingWithLabelsDataset("./val.hdf5")
 
     def objective(trial):
         config.update({
@@ -170,7 +172,7 @@ if __name__ == "__main__":
         run = wandb.init(entity="protpred", project="protpred", config=config)
         dataloader = DataLoader(dataset, batch_size=config["batch_size"], shuffle=True, collate_fn=collate_fn_window)
         val_loader = DataLoader(valDataset, batch_size=config["batch_size"], shuffle=False, collate_fn=collate_fn_window)
-        model = MODEL_REGISTRY[config["model_name"]](num_classes=dataset.num_labels).to(config["device"])
+        model = MODEL_REGISTRY[config["model_name"]](num_classes=dataset.num_labels,input_size=1024).to(config["device"])
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=config["learning_rate"])
         best_loss = train_model(model, dataloader, val_loader, config, run, criterion, optimizer, config["epochs"], patience=5)

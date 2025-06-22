@@ -13,6 +13,9 @@ class ProteinEmbeddingWithLabelsDataset(Dataset):
         with h5py.File(self.h5_path, 'r') as f:
             self.keys = list(f['embeddings'].keys())
 
+        self.num_labels = 58
+
+
     def __len__(self):
         return len(self.keys)
 
@@ -26,6 +29,8 @@ class ProteinEmbeddingWithLabelsDataset(Dataset):
 
         emb_tensor = torch.tensor(emb, dtype=torch.float32)
         label_tensor = torch.tensor(label, dtype=torch.long)
+
+
 
         return {
             "accession": accession,
