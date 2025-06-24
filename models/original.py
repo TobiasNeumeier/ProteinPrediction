@@ -23,7 +23,7 @@ class ResidualBlock(nn.Module):
 
 
 class OriginalModel(nn.Module):
-    def __init__(self, num_classes=19632, num_blocks=5, channels=256, input_size=21):
+    def __init__(self, num_classes=19632, num_blocks=5, channels=512, input_size=21):
         super().__init__()
 
 
