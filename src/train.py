@@ -67,14 +67,62 @@ def save_model(model, config, directory="checkpoints"):
     print(f"✅ Model saved to {save_path}")
     return save_path
 
-def compute_token_accuracy(outputs, targets, threshold=0.7):
-    target_indices = targets.argmax(dim=-1)
-    probs = F.softmax(outputs, dim=-1)
+def addNoneDimension(x):
+    B, L, C = x.shape
+    # Step 1: Check if all values along channel dimension are 0
+    all_zero_mask = (x == 0).all(dim=2).float()  # shape: (B, L)
+
+    # Step 2: Reshape and concatenate
+    # This will become the new first channel
+    all_zero_mask = all_zero_mask.unsqueeze(2)  # shape: (B, L, 1)
+
+    # Step 3: Concatenate along channel dimension
+    return torch.cat([all_zero_mask, x], dim=2)  # shape: (B, L, C+1)
+
+def compute_token_accuracy(outputs, targets, none_class_idx=0, threshold=0.7):
+    # Convert targets from one-hot to class indices
+    target_indices = targets.argmax(dim=-1)  # Shape: (N,)
+
+    # Convert logits to probabilities
+    probs = F.softmax(outputs, dim=-1)       # Shape: (N, C)
     max_probs, pred_indices = probs.max(dim=-1)
-    pred_indices[max_probs < threshold] = -1
-    correct = (pred_indices == target_indices) & (pred_indices != -1)
-    total = (pred_indices != -1).sum().item()
-    return 0.0 if total == 0 else correct.sum().item() / total
+
+    # Apply threshold: low-confidence predictions become 'None'
+    pred_indices[max_probs < threshold] = none_class_idx
+
+    # Compute accuracy
+    correct = (pred_indices == target_indices)
+    total = correct.numel()
+
+    return correct.sum().item() / total
+
+def compute_class_weights_from_dataset(dataset, num_classes, device):
+    """
+    Compute inverse frequency class weights from a dataset.
+    
+    Args:
+        dataset: a Dataset object that returns one-hot labels in 'labels'
+        num_classes: total number of classes (including 'None')
+        device: torch.device
+    Returns:
+        Tensor of shape (num_classes,)
+    """
+    class_counts = torch.zeros(num_classes)
+    loader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=collate_fn_window)
+
+    for batch in loader:
+        labels = batch["labels"]  # shape: (1, L, C)
+        labels = addNoneDimension(labels)
+        flat = labels.argmax(dim=-1).view(-1)  # shape: (L,)
+        class_counts += torch.bincount(flat, minlength=num_classes).float()
+
+    # Inverse frequency
+    class_weights = 1.0 / (class_counts + 1e-6)
+    class_weights = class_weights * num_classes / class_weights.sum()  # normalize
+
+    return class_weights.to(device)
+
+
 
 def evaluate(model, val_loader, criterion):
     model.eval()
@@ -85,6 +133,8 @@ def evaluate(model, val_loader, criterion):
         for batch in progress_bar:
             inputs = batch["embeddings"].to(config["device"])
             targets = batch["labels"].to(config["device"])
+            targets = addNoneDimension(targets)
+
             outputs, _ = model(inputs)
             val_acc += compute_token_accuracy(outputs, targets)
             logits = outputs.view(-1, outputs.size(-1))
@@ -108,6 +158,8 @@ def train_model(model, dataloader, val_loader, config, run, criterion, optimizer
         for batch_idx, batch in enumerate(progress_bar):
             inputs = batch["embeddings"].to(config["device"])
             targets = batch["labels"].to(config["device"])
+
+            targets = addNoneDimension(targets)
 
             optimizer.zero_grad()
             outputs, _ = model(inputs)
@@ -157,8 +209,8 @@ def train_model(model, dataloader, val_loader, config, run, criterion, optimizer
 # ----------------------------
 if __name__ == "__main__":
     seed_everything()
-    dataset = ProteinCSVWindowDataset("./train.csv")
-    valDataset = ProteinCSVWindowDataset("./val.csv")
+    dataset = ProteinCSVWindowDataset("./val.csv")
+    valDataset = ProteinCSVWindowDataset("./test.csv")
 
     def objective(trial):
         config.update({
@@ -170,8 +222,10 @@ if __name__ == "__main__":
         run = wandb.init(entity="protpred", project="protpred", config=config)
         dataloader = DataLoader(dataset, batch_size=config["batch_size"], shuffle=True, collate_fn=collate_fn_window)
         val_loader = DataLoader(valDataset, batch_size=config["batch_size"], shuffle=False, collate_fn=collate_fn_window)
-        model = MODEL_REGISTRY[config["model_name"]](num_classes=dataset.num_labels).to(config["device"])
-        criterion = nn.CrossEntropyLoss()
+        model = MODEL_REGISTRY[config["model_name"]](num_classes=dataset.num_labels+1).to(config["device"])
+        num_classes = dataset.num_labels + 1
+        class_weights = compute_class_weights_from_dataset(dataset, num_classes, config["device"])
+        criterion = nn.CrossEntropyLoss(weight=class_weights)
         optimizer = optim.Adam(model.parameters(), lr=config["learning_rate"])
         best_loss = train_model(model, dataloader, val_loader, config, run, criterion, optimizer, config["epochs"], patience=5)
         run.finish()
@@ -190,8 +244,10 @@ if __name__ == "__main__":
     final_run = wandb.init(entity="protpred", project="protpred", config=config)
     dataloader = DataLoader(dataset, batch_size=config["batch_size"], shuffle=True, collate_fn=collate_fn_window)
     val_loader = DataLoader(valDataset, batch_size=config["batch_size"], shuffle=False, collate_fn=collate_fn_window)
-    model = MODEL_REGISTRY[config["model_name"]](num_classes=dataset.num_labels).to(config["device"])
-    criterion = nn.CrossEntropyLoss()
+    model = MODEL_REGISTRY[config["model_name"]](num_classes=dataset.num_labels+1).to(config["device"])
+    num_classes = dataset.num_labels + 1
+    class_weights = compute_class_weights_from_dataset(dataset, num_classes, config["device"])
+    criterion = nn.CrossEntropyLoss(weight=class_weights)
     optimizer = optim.Adam(model.parameters(), lr=config["learning_rate"])
     train_model(model, dataloader, val_loader, config, final_run, criterion, optimizer, config["epochs"], patience=30)
     final_run.finish()
