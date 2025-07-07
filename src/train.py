@@ -167,6 +167,7 @@ if __name__ == "__main__":
             "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-2, log=True),
             "batch_size": trial.suggest_categorical("batch_size", [1, 2, 4, 8]),
             "model_name": trial.suggest_categorical("model_name", ["original"]),
+            #"background_weights": trial.suggest_categorical("background_weights", [0.5, 1.0, 2.0]),
             "epochs": 15,
         })
         run = wandb.init(entity="protpred", project="protpred", config=config)
